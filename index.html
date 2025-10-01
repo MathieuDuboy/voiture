@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>PWA GPS → ESP32-C3</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.json">
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 20px; }
+    button { margin: 10px; padding: 15px; font-size: 16px; }
+    #log { background: #f0f0f0; padding: 10px; border-radius: 8px; text-align: left; height: 200px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <h1>🚗 GPS → ESP32-C3</h1>
+  <button id="connect">Se connecter au BLE</button>
+  <button id="start" disabled>📍 Activer GPS auto</button>
+  <pre id="log"></pre>
+
+  <script>
+    let device, server, service, characteristic;
+    const SERVICE_UUID = "12345678-1234-1234-1234-123456789abc";
+    const CHAR_UUID    = "12345678-1234-1234-1234-123456789abd";
+
+    function log(msg) {
+      const logEl = document.getElementById("log");
+      logEl.textContent += msg + "\n";
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    document.getElementById("connect").onclick = async () => {
+      try {
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ name: "ESP32-C3-Test" }],
+          optionalServices: [SERVICE_UUID]
+        });
+        log("✅ Appareil trouvé : " + device.name);
+
+        server = await device.gatt.connect();
+        log("🔗 Connecté au GATT");
+
+        service = await server.getPrimaryService(SERVICE_UUID);
+        characteristic = await service.getCharacteristic(CHAR_UUID);
+        log("📡 Service prêt !");
+        document.getElementById("start").disabled = false;
+      } catch (error) {
+        log("⚠️ Erreur: " + error);
+      }
+    };
+
+    document.getElementById("start").onclick = () => {
+      if (!navigator.geolocation) {
+        log("❌ GPS non supporté");
+        return;
+      }
+      log("📍 Surveillance GPS démarrée...");
+      navigator.geolocation.watchPosition(
+        async pos => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const speed = (pos.coords.speed || 0) * 3.6; // m/s → km/h
+          const gps = { lat, lon, speed, timestamp: Date.now() };
+
+          log(`➡️ ${lat.toFixed(6)}, ${lon.toFixed(6)} - ${speed.toFixed(0)} km/h`);
+          if (characteristic) {
+            const data = new TextEncoder().encode(JSON.stringify(gps));
+            await characteristic.writeValue(data);
+          }
+        },
+        err => log("❌ GPS erreur: " + err.message),
+        { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
+      );
+    };
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js");
+    }
+  </script>
+</body>
+</html>
