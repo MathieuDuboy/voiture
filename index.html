@@ -102,34 +102,23 @@ async function sendLargeJSON(characteristic, data) {
   const jsonStr = JSON.stringify(data);
   console.log(`📤 JSON original: ${jsonStr}`);
   
-  // Conversion plus robuste en Base64
   const base64 = btoa(unescape(encodeURIComponent(jsonStr)));
-  console.log(`📤 Base64: ${base64}`);
   console.log(`📏 Taille Base64: ${base64.length} caractères`);
   
-  const CHUNK_SIZE = 6; // Réduit pour laisser de la place au header
+  const CHUNK_SIZE = 18; // plus de place sans header !
   const total = Math.ceil(base64.length / CHUNK_SIZE);
-
-  for (let i = 0; i < total; i++) {
-    const start = i * CHUNK_SIZE;
-    const end = start + CHUNK_SIZE;
-    const payload = base64.slice(start, end);
-    
-    const header = `{"p":${i+1},"t":${total}}|`;
-    const fullPacket = header + payload;
-    
-    console.log(`📤 Fragment ${i+1}/${total}: ${fullPacket}`);
-    
-    const bytes = new TextEncoder().encode(fullPacket);
-    await characteristic.writeValue(bytes);
-    
-    // Délai plus long pour la stabilité
-    if (i < total - 1) {
-      await new Promise(r => setTimeout(r, 50));
-    }
-  }
   
-  console.log("✅ Tous les fragments Base64 envoyés !");
+  for (let i = 0; i < total; i++) {
+    const chunk = base64.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+    const bytes = new TextEncoder().encode(chunk);
+    console.log(`📤 Fragment ${i+1}/${total}: ${chunk}`);
+    await characteristic.writeValue(bytes);
+    await new Promise(r => setTimeout(r, 60));
+  }
+
+  // Envoi d’un marqueur de fin (ex: "##END##")
+  await characteristic.writeValue(new TextEncoder().encode("##END##"));
+  console.log("✅ Tous les fragments envoyés !");
 }
 
 
