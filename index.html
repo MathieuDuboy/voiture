@@ -97,29 +97,37 @@ let bleFragments = [];
 let expectedFragments = 0;
 
 
+// --- 🔹 CORRECTION : Envoi des fragments BLE
 async function sendLargeJSON(characteristic, obj) {
   const data = JSON.stringify(obj);
   const chunkSize = 180;
   const total = Math.ceil(data.length / chunkSize);
+
+  console.log(`📤 Envoi de ${total} fragment(s) pour ${data.length} caractères`);
 
   for (let i = 0; i < total; i++) {
     const start = i * chunkSize;
     const end = (i + 1) * chunkSize;
     const chunk = data.substring(start, end);
     
-    // FORMAT CORRIGÉ : header|payload
-    const header = JSON.stringify({ p: i + 1, t: total });
-    const fragment = header + "|" + chunk;
+    // FORMAT SIMPLIFIÉ : juste le chunk sans header complexe
+    const fragment = chunk;
     
-    const encoded = new TextEncoder().encode(fragment);
-    await characteristic.writeValue(encoded);
-    
-    // Délai plus court
-    if (i < total - 1) {
-      await new Promise(r => setTimeout(r, 20));
+    try {
+      const encoded = new TextEncoder().encode(fragment);
+      await characteristic.writeValue(encoded);
+      console.log(`📤 Fragment ${i + 1}/${total} envoyé (${chunk.length} chars)`);
+      
+      // Délai entre les fragments
+      if (i < total - 1) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+    } catch (error) {
+      console.error(`❌ Erreur envoi fragment ${i + 1}:`, error);
+      break;
     }
   }
-  console.log(`✅ ${total} fragment(s) envoyé(s)`);
+  console.log(`✅ Tous les fragments envoyés`);
 }
 
 async function connectBLE() {
