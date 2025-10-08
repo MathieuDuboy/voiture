@@ -98,7 +98,7 @@ let expectedFragments = 0;
 
 
 
-async function sendLargeJSON(characteristic, obj) {
+async function sendLargeJSON(characteristic, obj) { 
   const dataStr = JSON.stringify(obj);
   console.log(`📤 JSON complet: ${dataStr}`);
   console.log(`📏 Longueur: ${dataStr.length} caractères`);
