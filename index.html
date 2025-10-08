@@ -99,22 +99,37 @@ let isConnected = false;
 
 // --- 🔹 Fonction d’envoi fragmenté BLE (corrigée)
 async function sendLargeJSON(characteristic, data) {
-  const json = JSON.stringify(data);
-  const base64 = btoa(unescape(encodeURIComponent(json))); // JSON -> base64
-  const MAX = 20; // BLE limit
-  const total = Math.ceil(base64.length / (MAX - 10));
+  const jsonStr = JSON.stringify(data);
+  console.log(`📤 JSON original: ${jsonStr}`);
+  
+  // Conversion plus robuste en Base64
+  const base64 = btoa(unescape(encodeURIComponent(jsonStr)));
+  console.log(`📤 Base64: ${base64}`);
+  console.log(`📏 Taille Base64: ${base64.length} caractères`);
+  
+  const CHUNK_SIZE = 15; // Réduit pour laisser de la place au header
+  const total = Math.ceil(base64.length / CHUNK_SIZE);
 
   for (let i = 0; i < total; i++) {
-    const start = i * (MAX - 10);
-    const end = start + (MAX - 10);
+    const start = i * CHUNK_SIZE;
+    const end = start + CHUNK_SIZE;
     const payload = base64.slice(start, end);
-
+    
     const header = `{"p":${i+1},"t":${total}}|`;
-    const full = header + payload;
-    const bytes = new TextEncoder().encode(full);
+    const fullPacket = header + payload;
+    
+    console.log(`📤 Fragment ${i+1}/${total}: ${fullPacket}`);
+    
+    const bytes = new TextEncoder().encode(fullPacket);
     await characteristic.writeValue(bytes);
-    await new Promise(r => setTimeout(r, 20));
+    
+    // Délai plus long pour la stabilité
+    if (i < total - 1) {
+      await new Promise(r => setTimeout(r, 50));
+    }
   }
+  
+  console.log("✅ Tous les fragments Base64 envoyés !");
 }
 
 
