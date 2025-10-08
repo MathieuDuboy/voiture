@@ -100,27 +100,23 @@ let isConnected = false;
 // --- 🔹 Fonction d’envoi fragmenté BLE (corrigée)
 async function sendLargeJSON(characteristic, data) {
   const json = JSON.stringify(data);
-  const MAX = 20; // 20 bytes BLE
-  const total = Math.ceil(json.length / (MAX - 10)); // marge pour header
-  console.log("🔢 Total fragments:", total);
+  const base64 = btoa(unescape(encodeURIComponent(json))); // JSON -> base64
+  const MAX = 20; // BLE limit
+  const total = Math.ceil(base64.length / (MAX - 10));
 
   for (let i = 0; i < total; i++) {
     const start = i * (MAX - 10);
     const end = start + (MAX - 10);
-    const payload = json.slice(start, end);
+    const payload = base64.slice(start, end);
 
-    // le header est au format {"p":x,"t":y}|
-    const header = `{"p":${i + 1},"t":${total}}|`;
+    const header = `{"p":${i+1},"t":${total}}|`;
     const full = header + payload;
-
-    // convertir en bytes UTF-8
     const bytes = new TextEncoder().encode(full);
-    console.log(`📤 Envoi fragment ${i + 1}/${total}:`, full);
-
     await characteristic.writeValue(bytes);
-    await new Promise(r => setTimeout(r, 50)); // petite pause
+    await new Promise(r => setTimeout(r, 20));
   }
 }
+
 
 
 // --- 🔹 Connexion BLE
