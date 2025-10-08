@@ -186,19 +186,32 @@ document.querySelector('#trajetForm').addEventListener('submit', e => {
 async function sendTrajetData() {
   if (!isConnected) return showToast('Connectez d’abord le BLE', 'warning');
 
+  // Données SIMPLES pour test
   const trajetData = {
     action: 'start',
-
-    ville_depart: "zeze",
-    ville_arrivee: "aze"
+    total_time: 180,
+    pause_freq: 60,
+    ville_depart: 'Paris',
+    ville_arrivee: 'Lyon'
   };
 
+  const dataStr = JSON.stringify(trajetData);
+  console.log(`📤 Envoi JSON: ${dataStr}`);
+  console.log(`📏 Taille: ${dataStr.length} caractères`);
+
   try {
-    await sendLargeJSON(characteristic, trajetData);
+    const encoder = new TextEncoder();
+    
+    // ENVOI DIRECT SANS FRAGMENTATION
+    await characteristic.writeValue(encoder.encode(dataStr));
+    
+    trajetActif = true;
     showToast('Trajet envoyé!', 'success');
+    console.log('✅ JSON envoyé en un seul message');
+    
   } catch (error) {
-    console.error('❌ Erreur:', error);
-    showToast('Erreur envoi', 'error');
+    console.error('❌ Erreur envoi:', error);
+    showToast('Erreur envoi BLE', 'error');
   }
 }
 
