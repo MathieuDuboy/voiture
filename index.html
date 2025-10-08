@@ -188,11 +188,9 @@ async function sendTrajetData() {
 
   const trajetData = {
     action: 'start',
-    total_time: parseInt(document.getElementById('totalTime').value),
-    pause_freq: parseInt(document.getElementById('pauseFrequency').value),
+
     ville_depart: document.getElementById('villeDepart').value,
     ville_arrivee: document.getElementById('villeArrivee').value,
-    timestamp: new Date().toISOString()
   };
 
   try {
