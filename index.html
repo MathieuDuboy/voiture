@@ -98,26 +98,29 @@ let expectedFragments = 0;
 
 
 
-async function sendLargeJSON(obj) {
-  let objf = '{"action":"start","total_time":60}'
-  const dataStr = JSON.stringify(objf);
+async function sendLargeJSON(characteristic, obj) {
+  const dataStr = JSON.stringify(obj);
+  console.log(`📤 JSON à envoyer: ${dataStr}`);
+  
   const encoder = new TextEncoder();
-  const encoded = encoder.encode(dataStr);
-
-  const chunkSize = 180; // ou 20 selon ton MTU BLE
-  const total = Math.ceil(encoded.length / chunkSize);
+  const chunkSize = 100; // Taille réduite pour plus de sécurité
+  const total = Math.ceil(dataStr.length / chunkSize);
 
   for (let i = 0; i < total; i++) {
-    const chunk = encoded.slice(i * chunkSize, (i + 1) * chunkSize);
+    const start = i * chunkSize;
+    const end = (i + 1) * chunkSize;
+    const chunk = dataStr.substring(start, end);
+    
     const header = JSON.stringify({ p: i + 1, t: total });
-    const packet = encoder.encode(header + "|" + new TextDecoder().decode(chunk));
-
-    await characteristic.writeValue(packet);
-    console.log(`📤 Envoi fragment ${i + 1}/${total}`);
-    await new Promise(r => setTimeout(r, 30)); // pause
+    const packet = header + "|" + chunk;
+    
+    console.log(`📤 Fragment ${i + 1}/${total}: ${packet}`);
+    
+    await characteristic.writeValue(encoder.encode(packet));
+    await new Promise(r => setTimeout(r, 50)); // Délai augmenté
   }
 
-  console.log("✅ Envoi JSON terminé !");
+  console.log("✅ Tous les fragments envoyés !");
 }
 
 
