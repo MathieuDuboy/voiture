@@ -100,10 +100,11 @@ let expectedFragments = 0;
 
 async function sendLargeJSON(characteristic, obj) {
   const dataStr = JSON.stringify(obj);
-  console.log(`📤 JSON à envoyer: ${dataStr}`);
+  console.log(`📤 JSON complet: ${dataStr}`);
+  console.log(`📏 Longueur: ${dataStr.length} caractères`);
   
   const encoder = new TextEncoder();
-  const chunkSize = 100; // Taille réduite pour plus de sécurité
+  const chunkSize = 100; // Taille réduite
   const total = Math.ceil(dataStr.length / chunkSize);
 
   for (let i = 0; i < total; i++) {
@@ -111,16 +112,21 @@ async function sendLargeJSON(characteristic, obj) {
     const end = (i + 1) * chunkSize;
     const chunk = dataStr.substring(start, end);
     
+    // Header SIMPLE et PROPRE
     const header = JSON.stringify({ p: i + 1, t: total });
     const packet = header + "|" + chunk;
     
-    console.log(`📤 Fragment ${i + 1}/${total}: ${packet}`);
+    console.log(`📤 Fragment ${i + 1}/${total}: ${packet.substring(0, 30)}...`);
     
     await characteristic.writeValue(encoder.encode(packet));
-    await new Promise(r => setTimeout(r, 50)); // Délai augmenté
+    
+    // Délai plus long entre les fragments
+    if (i < total - 1) {
+      await new Promise(r => setTimeout(r, 100));
+    }
   }
 
-  console.log("✅ Tous les fragments envoyés !");
+  console.log("✅ Tous les fragments envoyés");
 }
 
 
