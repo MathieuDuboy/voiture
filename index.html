@@ -193,9 +193,27 @@ async function sendTrajetData() {
     timestamp: new Date().toISOString()
   };
 
-  await sendLargeJSON(characteristic, trajetData);
-  trajetActif = true;
-  showToast('Trajet envoyé!', 'success');
+  const dataStr = JSON.stringify(trajetData);
+  console.log(`📤 Envoi JSON: ${dataStr}`);
+  console.log(`📏 Taille: ${dataStr.length} caractères`);
+
+  // Vérifier que c'est assez petit pour un envoi direct
+  if (dataStr.length > 200) {
+    showToast('Données trop longues, réduisez les noms de villes', 'error');
+    return;
+  }
+
+  try {
+    const encoded = new TextEncoder().encode(dataStr);
+    await characteristic.writeValue(encoded);
+    
+    trajetActif = true;
+    showToast('Trajet envoyé avec succès!', 'success');
+    console.log('✅ JSON envoyé en un seul message');
+  } catch (error) {
+    console.error('❌ Erreur envoi:', error);
+    showToast('Erreur envoi BLE: ' + error.message, 'error');
+  }
 }
 
 // --- 🔹 RECONSTRUCTION DES FRAGMENTS CÔTÉ RÉCEPTION
