@@ -98,30 +98,22 @@ let expectedFragments = 0;
 
 
 
-async function sendLargeJSON(characteristic, obj) {
-  const data = JSON.stringify(obj);
-  const chunkSize = 180; // taille maximale compatible BLE (et ESP32-C3 MTU=247)
+async function sendLargeJSON(jsonData) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(JSON.stringify(jsonData));
+
+  const chunkSize = 20;
   const total = Math.ceil(data.length / chunkSize);
 
-  console.log(`📤 Envoi JSON fragmenté (${data.length} octets en ${total} paquets)`);
-
   for (let i = 0; i < total; i++) {
-    const start = i * chunkSize;
-    const end = (i + 1) * chunkSize;
-    const chunk = data.substring(start, end);
-
-    const header = JSON.stringify({ p: i + 1, t: total }) + "|";
-    const full = header + chunk;
-    const encoded = new TextEncoder().encode(full);
-
-    await characteristic.writeValueWithoutResponse(encoded);
-    console.log(`➡️ Fragment ${i + 1}/${total} envoyé (${encoded.length} octets)`);
-
-    await new Promise(r => setTimeout(r, 30)); // pause pour éviter la congestion
+    const chunk = data.slice(i * chunkSize, (i + 1) * chunkSize);
+    const header = JSON.stringify({ p: i + 1, t: total });
+    const packet = new TextEncoder().encode(header + "|" + new TextDecoder().decode(chunk));
+    await characteristic.writeValue(packet);
+    await new Promise(r => setTimeout(r, 30)); // petit délai
   }
-
-  console.log("✅ Tous les fragments envoyés");
 }
+
 
 
 async function connectBLE() {
