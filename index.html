@@ -99,7 +99,8 @@ let expectedFragments = 0;
 
 
 async function sendLargeJSON(obj) {
-  const dataStr = JSON.stringify(obj);
+  let objf = '{"action":"start","total_time":60}'
+  const dataStr = JSON.stringify(objf);
   const encoder = new TextEncoder();
   const encoded = encoder.encode(dataStr);
 
