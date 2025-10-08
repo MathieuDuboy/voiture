@@ -100,36 +100,29 @@ let expectedFragments = 0;
 
 async function sendLargeJSON(characteristic, obj) {
   const data = JSON.stringify(obj);
-  console.log(`📤 Donnée à envoyer: ${data}`);
-  
-  // Vérifier la taille
-  if (data.length <= 180) {
-    // Envoi direct si assez petit
-    const encoded = new TextEncoder().encode(data);
-    await characteristic.writeValue(encoded);
-    console.log("✅ Message envoyé en un seul fragment");
-  } else {
-    // Fragmentation nécessaire
-    const chunkSize = 180;
-    const total = Math.ceil(data.length / chunkSize);
-    
-    for (let i = 0; i < total; i++) {
-      const start = i * chunkSize;
-      const end = (i + 1) * chunkSize;
-      const chunk = data.substring(start, end);
-      
-      // Envoyer juste le chunk de données
-      const encoded = new TextEncoder().encode(chunk);
-      await characteristic.writeValue(encoded);
-      console.log(`📤 Fragment ${i + 1}/${total} envoyé`);
-      
-      if (i < total - 1) {
-        await new Promise(r => setTimeout(r, 30));
-      }
-    }
-    console.log(`✅ ${total} fragment(s) envoyé(s)`);
+  const chunkSize = 180; // taille maximale compatible BLE (et ESP32-C3 MTU=247)
+  const total = Math.ceil(data.length / chunkSize);
+
+  console.log(`📤 Envoi JSON fragmenté (${data.length} octets en ${total} paquets)`);
+
+  for (let i = 0; i < total; i++) {
+    const start = i * chunkSize;
+    const end = (i + 1) * chunkSize;
+    const chunk = data.substring(start, end);
+
+    const header = JSON.stringify({ p: i + 1, t: total }) + "|";
+    const full = header + chunk;
+    const encoded = new TextEncoder().encode(full);
+
+    await characteristic.writeValueWithoutResponse(encoded);
+    console.log(`➡️ Fragment ${i + 1}/${total} envoyé (${encoded.length} octets)`);
+
+    await new Promise(r => setTimeout(r, 30)); // pause pour éviter la congestion
   }
+
+  console.log("✅ Tous les fragments envoyés");
 }
+
 
 async function connectBLE() {
   try {
@@ -193,12 +186,8 @@ async function sendTrajetData() {
     timestamp: new Date().toISOString()
   };
 
-  const dataStr = JSON.stringify(trajetData);
-  console.log(`📤 Envoi: ${dataStr}`);
-
   try {
-    const encoded = new TextEncoder().encode(dataStr);
-    await characteristic.writeValue(encoded);
+    await sendLargeJSON(characteristic, trajetData);
     showToast('Trajet envoyé!', 'success');
   } catch (error) {
     console.error('❌ Erreur:', error);
