@@ -97,37 +97,38 @@ let bleFragments = [];
 let expectedFragments = 0;
 
 
-// --- 🔹 CORRECTION : Envoi des fragments BLE
+
 async function sendLargeJSON(characteristic, obj) {
   const data = JSON.stringify(obj);
-  const chunkSize = 180;
-  const total = Math.ceil(data.length / chunkSize);
-
-  console.log(`📤 Envoi de ${total} fragment(s) pour ${data.length} caractères`);
-
-  for (let i = 0; i < total; i++) {
-    const start = i * chunkSize;
-    const end = (i + 1) * chunkSize;
-    const chunk = data.substring(start, end);
+  console.log(`📤 Donnée à envoyer: ${data}`);
+  
+  // Vérifier la taille
+  if (data.length <= 180) {
+    // Envoi direct si assez petit
+    const encoded = new TextEncoder().encode(data);
+    await characteristic.writeValue(encoded);
+    console.log("✅ Message envoyé en un seul fragment");
+  } else {
+    // Fragmentation nécessaire
+    const chunkSize = 180;
+    const total = Math.ceil(data.length / chunkSize);
     
-    // FORMAT SIMPLIFIÉ : juste le chunk sans header complexe
-    const fragment = chunk;
-    
-    try {
-      const encoded = new TextEncoder().encode(fragment);
-      await characteristic.writeValue(encoded);
-      console.log(`📤 Fragment ${i + 1}/${total} envoyé (${chunk.length} chars)`);
+    for (let i = 0; i < total; i++) {
+      const start = i * chunkSize;
+      const end = (i + 1) * chunkSize;
+      const chunk = data.substring(start, end);
       
-      // Délai entre les fragments
+      // Envoyer juste le chunk de données
+      const encoded = new TextEncoder().encode(chunk);
+      await characteristic.writeValue(encoded);
+      console.log(`📤 Fragment ${i + 1}/${total} envoyé`);
+      
       if (i < total - 1) {
-        await new Promise(r => setTimeout(r, 50));
+        await new Promise(r => setTimeout(r, 30));
       }
-    } catch (error) {
-      console.error(`❌ Erreur envoi fragment ${i + 1}:`, error);
-      break;
     }
+    console.log(`✅ ${total} fragment(s) envoyé(s)`);
   }
-  console.log(`✅ Tous les fragments envoyés`);
 }
 
 async function connectBLE() {
