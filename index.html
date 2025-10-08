@@ -107,7 +107,7 @@ async function sendLargeJSON(characteristic, data) {
   console.log(`📤 Base64: ${base64}`);
   console.log(`📏 Taille Base64: ${base64.length} caractères`);
   
-  const CHUNK_SIZE = 15; // Réduit pour laisser de la place au header
+  const CHUNK_SIZE = 2; // Réduit pour laisser de la place au header
   const total = Math.ceil(base64.length / CHUNK_SIZE);
 
   for (let i = 0; i < total; i++) {
