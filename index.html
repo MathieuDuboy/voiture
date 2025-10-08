@@ -98,21 +98,26 @@ let expectedFragments = 0;
 
 
 
-async function sendLargeJSON(jsonData) {
+async function sendLargeJSON(obj) {
+  const jsonStr = JSON.stringify(obj);
   const encoder = new TextEncoder();
-  const data = encoder.encode(JSON.stringify(jsonData));
+  const encoded = encoder.encode(jsonStr);
 
-  const chunkSize = 20;
-  const total = Math.ceil(data.length / chunkSize);
+  const chunkSize = 20; // BLE limite
+  const total = Math.ceil(encoded.length / chunkSize);
 
   for (let i = 0; i < total; i++) {
-    const chunk = data.slice(i * chunkSize, (i + 1) * chunkSize);
+    const chunk = encoded.slice(i * chunkSize, (i + 1) * chunkSize);
     const header = JSON.stringify({ p: i + 1, t: total });
-    const packet = new TextEncoder().encode(header + "|" + new TextDecoder().decode(chunk));
+    const packet = encoder.encode(header + "|" + new TextDecoder().decode(chunk));
     await characteristic.writeValue(packet);
-    await new Promise(r => setTimeout(r, 30)); // petit délai
+    console.log(`📤 Envoi fragment ${i + 1}/${total}`);
+    await new Promise(r => setTimeout(r, 30)); // petite pause entre fragments
   }
+
+  console.log("✅ Envoi JSON terminé !");
 }
+
 
 
 
