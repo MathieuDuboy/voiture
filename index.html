@@ -194,7 +194,7 @@ document.querySelector('#trajetForm').addEventListener('submit', async e => {
   };
 
   // ✅ Correction ici : on envoie avec fragmentation
-  await sendLargeJSON(characteristic, { action: "test", valeur: 42 });
+  await sendLargeJSON(characteristic, trajetData);
 });
 
 // --- 🔹 Gestion des notifications reçues
