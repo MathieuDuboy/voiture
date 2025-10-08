@@ -96,21 +96,30 @@ let trajetActif = false;
 let bleFragments = [];
 let expectedFragments = 0;
 
+
 async function sendLargeJSON(characteristic, obj) {
   const data = JSON.stringify(obj);
   const chunkSize = 180;
   const total = Math.ceil(data.length / chunkSize);
 
   for (let i = 0; i < total; i++) {
-    const frag = {
-      p: i + 1,
-      t: total,
-      d: data.slice(i * chunkSize, (i + 1) * chunkSize)
-    };
-    const encoded = new TextEncoder().encode(JSON.stringify(frag));
-    await characteristic.writeValueWithoutResponse(encoded);
-    await new Promise(r => setTimeout(r, 30));
+    const start = i * chunkSize;
+    const end = (i + 1) * chunkSize;
+    const chunk = data.substring(start, end);
+    
+    // FORMAT CORRIGÉ : header|payload
+    const header = JSON.stringify({ p: i + 1, t: total });
+    const fragment = header + "|" + chunk;
+    
+    const encoded = new TextEncoder().encode(fragment);
+    await characteristic.writeValue(encoded);
+    
+    // Délai plus court
+    if (i < total - 1) {
+      await new Promise(r => setTimeout(r, 20));
+    }
   }
+  console.log(`✅ ${total} fragment(s) envoyé(s)`);
 }
 
 async function connectBLE() {
