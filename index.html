@@ -194,7 +194,13 @@ document.querySelector('#trajetForm').addEventListener('submit', async e => {
 };
 
   // ✅ Correction ici : on envoie avec fragmentation
-  await sendLargeJSON(characteristic, trajetData);
+  await sendLargeJSON(characteristic, {
+  "action": "start",
+  "total_time": 180,
+  "pause_freq": 60,
+  "ville_depart": "Paris",
+  "ville_arrivee": "Lyon"
+});
 });
 
 // --- 🔹 Gestion des notifications reçues
