@@ -186,7 +186,7 @@ document.querySelector('#trajetForm').addEventListener('submit', async e => {
 
   const trajetData = {
     action: 'start',
-    total_time: parseInt(document.getElementById('arrivalTime').value) || 0,
+    arrival_time: parseInt(document.getElementById('arrivalTime').value) || 0,
     pause_freq: parseInt(document.getElementById('pauseFrequency').value) || 0,
     ville_depart: villeDepart,
     ville_arrivee: villeArrivee,
