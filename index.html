@@ -185,10 +185,10 @@ document.querySelector('#trajetForm').addEventListener('submit', async e => {
   // ✅ Correction ici : on envoie avec fragmentation
   await sendLargeJSON(characteristic, {
   "action": "start",
-  "total_time": 180,
-  "pause_freq": 60,
-  "ville_depart": "Paris",
-  "ville_arrivee": "Lyon"
+  "total_time": total_time,
+  "pause_freq": pause_freq,
+  "ville_depart": ville_depart,
+  "ville_arrivee": ville_arrivee
 });
 });
 
