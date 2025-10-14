@@ -174,17 +174,29 @@ document.querySelector('#trajetForm').addEventListener('submit', async e => {
   e.preventDefault();
   if (!isConnected) return showToast('Connectez d’abord le BLE', 'warning');
 
- const trajetData = {
+  // 🕒 Heure actuelle au format HH:MM (24h)
+  const now = new Date();
+  const heures = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const heure_actuelle = `${heures}:${minutes}`; // ex: "06:26" ou "18:45"
+
+  // 🏙️ Récupération et limitation des villes à 10 caractères
+  const villeDepart = (document.getElementById('villeDepart').value || 'Inconnue').substring(0, 10);
+  const villeArrivee = (document.getElementById('villeArrivee').value || 'Inconnue').substring(0, 10);
+
+  const trajetData = {
     action: 'start',
     total_time: parseInt(document.getElementById('totalTime').value) || 0,
     pause_freq: parseInt(document.getElementById('pauseFrequency').value) || 0,
-    ville_depart: document.getElementById('villeDepart').value || 'Inconnue',
-    ville_arrivee: document.getElementById('villeArrivee').value || 'Inconnue'
-};
+    ville_depart: villeDepart,
+    ville_arrivee: villeArrivee,
+    heure_depart: heure_actuelle // ⏰ ajout de l'heure au format HH:MM
+  };
 
-  // ✅ Correction ici : on envoie avec fragmentation
+  // ✅ Envoi avec fragmentation
   await sendLargeJSON(characteristic, trajetData);
 });
+
 
 // --- 🔹 Gestion des notifications reçues
 function handleNotifications(event) {
