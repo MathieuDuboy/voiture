@@ -52,7 +52,7 @@ body {
             </div>
             <div class="mb-3">
               <label class="form-label">Heure arrivée</label>
-              <input type="number" id="arrivalTime" class="form-control" value="12:32">
+              <input type="text" id="arrivalTime" class="form-control" value="12:32" placeholder="Ex: 12:32">
             </div>
             <div class="mb-3">
               <label class="form-label">Pause toutes les (min)</label>
@@ -186,14 +186,14 @@ document.querySelector('#trajetForm').addEventListener('submit', async e => {
 
   const trajetData = {
     action: 'start',
-    arrival_time: parseInt(document.getElementById('arrivalTime').value) || 0,
-    pause_freq: parseInt(document.getElementById('pauseFrequency').value) || 0,
+    heure_arrivee: parseInt(document.getElementById('arrivalTime').value) || 0,
+    pause_frequency: parseInt(document.getElementById('pauseFrequency').value) || 0,
     ville_depart: villeDepart,
     ville_arrivee: villeArrivee,
     heure_depart: heure_actuelle // ⏰ ajout de l'heure au format HH:MM
   };
 
-  // ✅ Envoi avec fragmentation
+// ✅ Envoi avec fragmentation
   await sendLargeJSON(characteristic, trajetData);
 });
 
