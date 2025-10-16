@@ -127,7 +127,7 @@ async function sendLargeJSON(characteristic, data) {
 async function connectBLE() {
   try {
     device = await navigator.bluetooth.requestDevice({
-      filters: [{ name: 'ESP32-Dashboard' }],
+      filters: [{ name: 'On-Arrive-Quand' }],
       optionalServices: [SERVICE_UUID]
     });
 
