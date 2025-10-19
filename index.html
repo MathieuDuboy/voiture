@@ -6,6 +6,7 @@
 <title>Dashboard Trajet - ESP32</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
 <style>
 body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -18,6 +19,7 @@ body {
 .btn-success { background: linear-gradient(45deg, #27ae60, #229954); border: none; border-radius: 25px; padding: 12px 30px; font-weight: 600; }
 .connection-status { padding: 8px 15px; border-radius: 20px; font-weight: 600; }
 .progress-container { display: none; margin-top: 10px; }
+.ui-autocomplete { max-height: 200px; overflow-y: auto; overflow-x: hidden; }
 </style>
 </head>
 <body>
@@ -52,11 +54,32 @@ body {
             </div>
             <div class="mb-3">
               <label class="form-label">Heure arrivée</label>
-              <input type="text" id="arrivalTime" class="form-control" value="12:32" placeholder="Ex: 12:32">
+              <input type="time" id="arrivalTime" class="form-control" value="12:32">
             </div>
             <div class="mb-3">
-              <label class="form-label">Pause toutes les (min)</label>
-              <input type="number" id="pauseFrequency" class="form-control" value="60">
+              <label class="form-label">Nombre de kilomètres totaux</label>
+              <input type="number" id="totalKm" class="form-control" placeholder="Ex: 250">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Pause toutes les</label>
+              <div class="btn-group d-flex flex-wrap" role="group">
+                <input type="radio" class="btn-check" name="pauseFrequency" id="pause15" value="15" autocomplete="off">
+                <label class="btn btn-outline-primary" for="pause15">15 min</label>
+                <input type="radio" class="btn-check" name="pauseFrequency" id="pause30" value="30" autocomplete="off">
+                <label class="btn btn-outline-primary" for="pause30">30 min</label>
+                <input type="radio" class="btn-check" name="pauseFrequency" id="pause45" value="45" autocomplete="off">
+                <label class="btn btn-outline-primary" for="pause45">45 min</label>
+                <input type="radio" class="btn-check" name="pauseFrequency" id="pause60" value="60" autocomplete="off" checked>
+                <label class="btn btn-outline-primary" for="pause60">1h</label>
+                <input type="radio" class="btn-check" name="pauseFrequency" id="pause75" value="75" autocomplete="off">
+                <label class="btn btn-outline-primary" for="pause75">1h15</label>
+                <input type="radio" class="btn-check" name="pauseFrequency" id="pause90" value="90" autocomplete="off">
+                <label class="btn btn-outline-primary" for="pause90">1h30</label>
+                <input type="radio" class="btn-check" name="pauseFrequency" id="pause105" value="105" autocomplete="off">
+                <label class="btn btn-outline-primary" for="pause105">1h45</label>
+                <input type="radio" class="btn-check" name="pauseFrequency" id="pause120" value="120" autocomplete="off">
+                <label class="btn btn-outline-primary" for="pause120">2h</label>
+              </div>
             </div>
             <div class="d-grid gap-2">
               <button type="button" id="connectBtn" class="btn btn-primary">
@@ -89,6 +112,40 @@ body {
     </div>
   </div>
 </div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+<script>
+$( function() {
+  function setupAutocomplete(inputId) {
+    $("#" + inputId).autocomplete({
+      source: function(request, response) {
+        $.ajax({
+          url: "https://api-adresse.data.gouv.fr/search/",
+          dataType: "json",
+          data: {
+            q: request.term,
+            type: "municipality",
+            autocomplete: 1,
+            limit: 10
+          },
+          success: function(data) {
+            response($.map(data.features, function(item) {
+              return {
+                label: item.properties.name + " (" + item.properties.postcode + ", " + item.properties.context + ")",
+                value: item.properties.name
+              };
+            }));
+          }
+        });
+      },
+      minLength: 2
+    });
+  }
+  setupAutocomplete("villeDepart");
+  setupAutocomplete("villeArrivee");
+} );
+</script>
 
 <script>
 const SERVICE_UUID = '12345678-1234-1234-1234-123456789abc';
@@ -187,10 +244,11 @@ document.querySelector('#trajetForm').addEventListener('submit', async e => {
   const trajetData = {
     action: 'start',
     heure_arrivee: document.getElementById('arrivalTime').value || 0,
-    pause_frequency: parseInt(document.getElementById('pauseFrequency').value) || 0,
+    pause_frequency: parseInt(document.querySelector('input[name="pauseFrequency"]:checked')?.value) || 0,
     ville_depart: villeDepart,
     ville_arrivee: villeArrivee,
-    heure_depart: heure_actuelle // ⏰ ajout de l'heure au format HH:MM
+    heure_depart: heure_actuelle, // ⏰ ajout de l'heure au format HH:MM
+    total_km: parseInt(document.getElementById('totalKm').value) || 0
   };
 
 // ✅ Envoi avec fragmentation
