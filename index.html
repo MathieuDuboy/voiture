@@ -104,56 +104,45 @@ async function start() {
     const ip = document.getElementById("ip").value.trim();
     const audioUrl = document.getElementById("audioUrl").value.trim();
 
-    if (!ip || !audioUrl) {
-        alert("IP ou URL manquante");
-        return;
-    }
-
     btn.disabled = true;
-    log("🚀 Début du process...");
+    log("🚀 Démarrage...", "info");
 
     try {
-        // 1) Test connexion ESP32
-        log("🔌 Test connexion ESP32...", "info");
-        await fetch("http://" + ip + ":8081", { method: "OPTIONS" });
-        log("✅ ESP32 joignable", "ok");
+        // Télécharger l'audio
+        log("⬇️ Téléchargement...", "info");
+        const response = await fetch(audioUrl);
+        const audioData = await response.arrayBuffer();
+        log(`✅ ${audioData.byteLength} bytes`, "ok");
+        
+        // Envoyer directement sans header complexe
+        log("📡 Envoi vers ESP32...", "info");
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `http://${ip}:8081`, true);
+        xhr.responseType = 'arraybuffer';
+        
+        xhr.onload = function() {
+            log("✅ Transfert terminé", "ok");
+            btn.disabled = false;
+        };
+        
+        xhr.onerror = function() {
+            log("❌ Erreur réseau", "err");
+            btn.disabled = false;
+        };
+        
+        xhr.ontimeout = function() {
+            log("⏱️ Timeout", "warn");
+            btn.disabled = false;
+        };
+        
+        xhr.timeout = 10000; // 10 secondes
+        xhr.send(audioData);
+        
     } catch (e) {
-        log("❌ Impossible de contacter l'ESP32 : " + e, "err");
+        log(`❌ Erreur: ${e.message}`, "err");
         btn.disabled = false;
-        return;
     }
-
-    let audioBuffer;
-
-    try {
-        // 2) Télécharger l'audio
-        log("⬇️ Téléchargement de l'audio...", "info");
-        const res = await fetch(audioUrl);
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        audioBuffer = await res.arrayBuffer();
-        log("✅ Audio téléchargé : " + audioBuffer.byteLength + " octets", "ok");
-    } catch (e) {
-        log("❌ Erreur téléchargement audio : " + e, "err");
-        btn.disabled = false;
-        return;
-    }
-
-    try {
-        // 3) Envoi vers ESP32
-        log("📡 Envoi du flux audio vers ESP32...", "info");
-        const res = await fetch("http://" + ip + ":8081", {
-            method: "POST",
-            body: audioBuffer
-        });
-        log("✅ Envoi terminé", "ok");
-    } catch (e) {
-        log("❌ Erreur envoi vers ESP32 : " + e, "err");
-        btn.disabled = false;
-        return;
-    }
-
-    log("🎉 Terminé !", "ok");
-    btn.disabled = false;
 }
 </script>
 
