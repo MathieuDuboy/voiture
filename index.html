@@ -1,29 +1,159 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-<meta charset="utf-8">
-<title>Envoyer son vers ESP32</title>
+<meta charset="UTF-8">
+<title>ESP32 Audio Player</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0f172a;
+    color: #e5e7eb;
+    margin: 0;
+    padding: 20px;
+}
+
+h1 {
+    text-align: center;
+}
+
+.card {
+    max-width: 600px;
+    margin: auto;
+    background: #020617;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+}
+
+input, button {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
+    border: none;
+    font-size: 16px;
+}
+
+input {
+    background: #020617;
+    color: white;
+    border: 1px solid #334155;
+}
+
+button {
+    background: #2563eb;
+    color: white;
+    font-weight: bold;
+}
+
+button:disabled {
+    background: #334155;
+}
+
+.log {
+    background: black;
+    padding: 10px;
+    height: 200px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 13px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+}
+
+.ok { color: #22c55e; }
+.err { color: #ef4444; }
+.info { color: #38bdf8; }
+.warn { color: #facc15; }
+</style>
 </head>
 <body>
-<h1>🎧 Player ESP32</h1>
 
-<button onclick="play()">▶️ Jouer le son</button>
+<h1>🎧 ESP32 WiFi Audio Player</h1>
+
+<div class="card">
+
+<label>📡 IP de l'ESP32 :</label>
+<input id="ip" value="192.168.43.25">
+
+<label>🌍 URL du fichier audio RAW :</label>
+<input id="audioUrl" value="https://tonsite.com/test3.raw">
+
+<button id="btn" onclick="start()">▶️ Envoyer le son</button>
+
+<h3>📜 Logs :</h3>
+<div id="log" class="log"></div>
+
+</div>
 
 <script>
-async function play() {
-    const ESP32_IP = "192.168.43.25"; // ⚠️ à adapter
+const logDiv = document.getElementById("log");
+const btn = document.getElementById("btn");
 
-    // Télécharger un fichier audio RAW depuis ton serveur
-    const response = await fetch("https://tonsite.com/test3.raw");
-    const buffer = await response.arrayBuffer();
+function log(msg, cls="info") {
+    const line = document.createElement("div");
+    line.className = cls;
+    line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logDiv.appendChild(line);
+    logDiv.scrollTop = logDiv.scrollHeight;
+}
 
-    // Envoyer le son à l'ESP32
-    await fetch("http://" + ESP32_IP + ":8081", {
-        method: "POST",
-        body: buffer
-    });
+async function start() {
+    const ip = document.getElementById("ip").value.trim();
+    const audioUrl = document.getElementById("audioUrl").value.trim();
 
-    alert("Audio envoyé !");
+    if (!ip || !audioUrl) {
+        alert("IP ou URL manquante");
+        return;
+    }
+
+    btn.disabled = true;
+    log("🚀 Début du process...");
+
+    try {
+        // 1) Test connexion ESP32
+        log("🔌 Test connexion ESP32...", "info");
+        await fetch("http://" + ip + ":8081", { method: "OPTIONS" });
+        log("✅ ESP32 joignable", "ok");
+    } catch (e) {
+        log("❌ Impossible de contacter l'ESP32 : " + e, "err");
+        btn.disabled = false;
+        return;
+    }
+
+    let audioBuffer;
+
+    try {
+        // 2) Télécharger l'audio
+        log("⬇️ Téléchargement de l'audio...", "info");
+        const res = await fetch(audioUrl);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        audioBuffer = await res.arrayBuffer();
+        log("✅ Audio téléchargé : " + audioBuffer.byteLength + " octets", "ok");
+    } catch (e) {
+        log("❌ Erreur téléchargement audio : " + e, "err");
+        btn.disabled = false;
+        return;
+    }
+
+    try {
+        // 3) Envoi vers ESP32
+        log("📡 Envoi du flux audio vers ESP32...", "info");
+        const res = await fetch("http://" + ip + ":8081", {
+            method: "POST",
+            body: audioBuffer
+        });
+        log("✅ Envoi terminé", "ok");
+    } catch (e) {
+        log("❌ Erreur envoi vers ESP32 : " + e, "err");
+        btn.disabled = false;
+        return;
+    }
+
+    log("🎉 Terminé !", "ok");
+    btn.disabled = false;
 }
 </script>
 
