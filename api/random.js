@@ -1,8 +1,10 @@
+// /api/random.js
+
 // ===============================
 // Cache mémoire des communes
 // ===============================
 let COMMUNES = null;
- 
+
 // ===============================
 // Table départements
 // ===============================
@@ -37,6 +39,16 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function normalizeText(s) {
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, ""); // enlève les accents
+}
+
+// ===============================
+// Intro variée (UX)
+// ===============================
 const INTRO_START = [
   "Nous venons d'arriver à",
   "Nous explorons aujourd'hui",
@@ -66,44 +78,120 @@ const INTRO_END = [
   "Dis-moi ce qui t'intrigue le plus."
 ];
 
-// ===============================
-// Construire l'intro
-// ===============================
-function buildIntro(city, deptName, categories) {
-  const cats = categories.filter(c => c !== "Autres découvertes");
-  if (categories.includes("Autres découvertes")) {
-    cats.push("Autres découvertes");
-  }
+function buildIntro(city, deptName, groups) {
+  // "Autres découvertes" toujours en dernier
+  const cats = groups.filter(g => g !== "Autres découvertes");
+  if (groups.includes("Autres découvertes")) cats.push("Autres découvertes");
 
   let list;
-  if (cats.length === 0) {
-    list = "quelques endroits intéressants";
-  } else if (cats.length === 1) {
-    list = cats[0];
-  } else if (cats.length === 2) {
-    list = cats[0] + " et " + cats[1];
-  } else {
-    list = cats.slice(0, -1).join(", ") + " et " + cats[cats.length - 1];
-  }
+  if (cats.length === 0) list = "quelques endroits intéressants";
+  else if (cats.length === 1) list = cats[0];
+  else if (cats.length === 2) list = `${cats[0]} et ${cats[1]}`;
+  else list = `${cats.slice(0, -1).join(", ")} et ${cats[cats.length - 1]}`;
 
   return `${pick(INTRO_START)} ${city}, ${pick(INTRO_MIDDLE)} ${deptName}. ${pick(INTRO_TRANSITION)} ${list}. ${pick(INTRO_END)}`;
 }
 
 // ===============================
-// Classification Wikipedia
+// Classification POI (pondérée)
+// - Utilise categories + title
+// - Normalise accents
+// - Seuil anti faux-positifs
 // ===============================
-function classify(categories) {
-  const text = categories.join(" ").toLowerCase();
+function classifyPOI(categoryTitles, title) {
+  const scores = {
+    histoire: 0,
+    art: 0,
+    science: 0,
+    nature: 0,
+    technique: 0,
+    traditions: 0
+  };
 
-  if (text.includes("église") || text.includes("chapelle") || text.includes("cathédrale")) return "Monuments religieux";
-  if (text.includes("château")) return "Châteaux";
-  if (text.includes("musée")) return "Musées";
-  if (text.includes("lac") || text.includes("rivière") || text.includes("étang")) return "Lacs et rivières";
-  if (text.includes("forêt") || text.includes("parc") || text.includes("naturel")) return "Nature";
-  if (text.includes("monument") || text.includes("statue") || text.includes("tour")) return "Monuments";
-  if (text.includes("site") || text.includes("historique")) return "Sites historiques";
+  // Nettoyage des catégories Wikipédia ("Catégorie:XXXX")
+  const cleanedCats = (categoryTitles || []).map(c => c.replace(/^categorie:/i, "").replace(/^catégorie:/i, ""));
+  const categoryText = normalizeText(cleanedCats.join(" "));
+  const titleText = normalizeText(title);
 
-  return "Autres découvertes";
+  // Mots-clés pondérés (tu peux enrichir quand tu veux)
+  const keywords = {
+    histoire: [
+      { term: "eglise", w: 3 }, { term: "chapelle", w: 2 }, { term: "cathedrale", w: 3 },
+      { term: "abbaye", w: 2 }, { term: "basilique", w: 2 },
+      { term: "chateau", w: 3 }, { term: "fort", w: 2 }, { term: "citadelle", w: 3 },
+      { term: "remparts", w: 2 }, { term: "monument historique", w: 4 }, { term: "patrimoine", w: 2 },
+      { term: "archeolog", w: 3 }, { term: "vestige", w: 2 }, { term: "ruines", w: 2 },
+      { term: "memorial", w: 2 }, { term: "statue", w: 1 }, { term: "tombe", w: 1 },
+      { term: "histoire", w: 1 }, { term: "ancien", w: 1 }
+    ],
+    art: [
+      { term: "musee", w: 4 }, { term: "arts", w: 2 }, { term: "art", w: 1 },
+      { term: "peinture", w: 2 }, { term: "sculpture", w: 2 }, { term: "galerie", w: 2 },
+      { term: "theatre", w: 2 }, { term: "opera", w: 2 }, { term: "culture", w: 1 },
+      { term: "cinema", w: 1 }, { term: "festival", w: 1 }
+    ],
+    science: [
+      { term: "observatoire", w: 3 }, { term: "planetarium", w: 3 },
+      { term: "astronom", w: 2 }, { term: "science", w: 2 }, { term: "scientifique", w: 2 },
+      { term: "botanique", w: 2 }, { term: "geolog", w: 2 }, { term: "zoolog", w: 2 },
+      { term: "aquarium", w: 2 }, { term: "centre de recherche", w: 3 }
+    ],
+    nature: [
+      { term: "parc", w: 2 }, { term: "jardin", w: 2 }, { term: "arboretum", w: 3 },
+      { term: "reserve naturelle", w: 4 }, { term: "naturel", w: 2 }, { term: "site naturel", w: 2 },
+      { term: "foret", w: 2 }, { term: "montagne", w: 2 }, { term: "sommet", w: 2 },
+      { term: "lac", w: 1 }, { term: "riviere", w: 1 }, { term: "etang", w: 1 }, { term: "cascade", w: 2 },
+      { term: "grotte", w: 2 }, { term: "plage", w: 1 }, { term: "dune", w: 1 },
+      { term: "sentier", w: 1 }, { term: "randonn", w: 1 }
+    ],
+    technique: [
+      { term: "pont", w: 2 }, { term: "viaduc", w: 2 }, { term: "phare", w: 2 },
+      { term: "barrage", w: 2 }, { term: "canal", w: 2 }, { term: "ecluse", w: 2 },
+      { term: "chemin de fer", w: 2 }, { term: "gare", w: 1 }, { term: "locomotive", w: 2 },
+      { term: "industrie", w: 2 }, { term: "usine", w: 2 }, { term: "mine", w: 2 },
+      { term: "moulin", w: 2 }, { term: "technolog", w: 2 }
+    ],
+    traditions: [
+      { term: "ecomusee", w: 4 }, { term: "artisan", w: 2 }, { term: "artisanat", w: 2 },
+      { term: "tradition", w: 2 }, { term: "folklore", w: 2 },
+      { term: "vignoble", w: 2 }, { term: "vin", w: 1 }, { term: "fromage", w: 1 },
+      { term: "gastronom", w: 2 }, { term: "marche", w: 1 }, { term: "fete", w: 1 },
+      { term: "terroir", w: 2 }
+    ]
+  };
+
+  // Ajoute score si trouvé dans catégories OU titre (titre = bonus léger)
+  for (const [theme, terms] of Object.entries(keywords)) {
+    for (const { term, w } of terms) {
+      if (categoryText.includes(term)) scores[theme] += w;
+      if (titleText.includes(term)) scores[theme] += Math.max(1, Math.floor(w / 2));
+    }
+  }
+
+  // Trouver thème dominant
+  let maxScore = 0;
+  let main = "autres";
+
+  for (const [theme, score] of Object.entries(scores)) {
+    if (score > maxScore) {
+      maxScore = score;
+      main = theme;
+    }
+  }
+
+  // Seuil anti faux-positifs
+  if (maxScore < 3) return "Autres découvertes";
+
+  const themeNames = {
+    histoire: "Histoire & Patrimoine",
+    art: "Arts & Culture",
+    science: "Sciences & Savoir",
+    nature: "Nature & Environnement",
+    technique: "Technique & Industrie",
+    traditions: "Savoir-faire & Traditions"
+  };
+
+  return themeNames[main] || "Autres découvertes";
 }
 
 // ===============================
@@ -115,13 +203,11 @@ export default async function handler(req, res) {
     if (!COMMUNES) {
       const baseUrl = `https://${req.headers.host}`;
       const resp = await fetch(`${baseUrl}/communes.json`);
-      if (!resp.ok) {
-        return res.status(500).json({ error: "Impossible de charger /communes.json" });
-      }
+      if (!resp.ok) return res.status(500).json({ error: "Impossible de charger /communes.json" });
 
       const raw = await resp.json();
 
-      // Filtrer uniquement celles avec coordonnées valides (GeoJSON)
+      // Filtrer uniquement celles avec coordonnées valides (GeoJSON: [lon, lat])
       COMMUNES = raw.filter(c =>
         c &&
         c.centre &&
@@ -130,8 +216,10 @@ export default async function handler(req, res) {
         typeof c.centre.coordinates[0] === "number" &&
         typeof c.centre.coordinates[1] === "number"
       );
+    }
 
-      console.log("📦 Communes valides:", COMMUNES.length, "/", raw.length);
+    if (!COMMUNES || COMMUNES.length === 0) {
+      return res.status(500).json({ error: "Aucune commune valide disponible" });
     }
 
     // 2) Choisir une commune aléatoire
@@ -139,48 +227,76 @@ export default async function handler(req, res) {
     const commune = COMMUNES[idx];
 
     const city = commune.nom || "Ville inconnue";
-    const deptCode = commune.codeDepartement?.toString() || "??";
+    const deptCode = (commune.codeDepartement || "??").toString();
     const deptName = DEPARTEMENTS[deptCode] || "Departement inconnu";
 
-    // ⚠️ GeoJSON = [lon, lat]
+    // GeoJSON = [lon, lat]
     const lon = commune.centre.coordinates[0];
     const lat = commune.centre.coordinates[1];
 
-    // 3) Wikipedia POI autour de la commune
-    const wikiUrl = `https://fr.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=10000&gscoord=${lat}|${lon}&gslimit=20&format=json&origin=*`;
+    // 3) Wikipédia : 1 seule requête (generator=geosearch + categories)
+    // - formatversion=2 => query.pages = tableau (plus simple)
+    // - prop=categories|coordinates => récupère directement les catégories
+    // - cllimit=max => plus de chances d'avoir les bons mots-clés
+    // - ggsprop=distance => dist dispo
+    // - ggsnamespace=0 => articles (évite pages spéciales)
+    const wikiUrl =
+      `https://fr.wikipedia.org/w/api.php` +
+      `?action=query` +
+      `&format=json` +
+      `&formatversion=2` +
+      `&generator=geosearch` +
+      `&ggscoord=${lat}|${lon}` +
+      `&ggsradius=10000` +
+      `&ggslimit=20` +
+      `&ggsnamespace=0` +
+      `&ggsprop=distance` +
+      `&prop=coordinates|categories` +
+      `&cllimit=max` +
+      `&origin=*`;
+
     const wikiResp = await fetch(wikiUrl);
     const wikiJson = await wikiResp.json();
+    const pages = wikiJson?.query?.pages || [];
 
-    const results = wikiJson?.query?.geosearch || [];
+    // 4) Regrouper par thèmes
+    const grouped = {};
 
-    // 4) Regrouper par catégories
-    const categories = {};
+    for (const p of pages) {
+      const pageid = p.pageid;
+      const title = p.title || "Sans titre";
 
-    for (const item of results) {
-      const pageid = item.pageid;
+      // catégories (peut être absent)
+      const catTitles = (p.categories || []).map(c => c.title);
 
-      const pageUrl = `https://fr.wikipedia.org/w/api.php?action=query&prop=categories&pageids=${pageid}&format=json&origin=*`;
-      const pageResp = await fetch(pageUrl);
-      const pageJson = await pageResp.json();
+      // coords (peut être absent)
+      const coord = (p.coordinates && p.coordinates[0]) ? p.coordinates[0] : null;
+      const plat = coord ? coord.lat : null;
+      const plon = coord ? coord.lon : null;
 
-      const page = pageJson?.query?.pages?.[pageid];
-      const cats = (page?.categories || []).map(c => c.title);
+      const dist = p?.distance ?? null;
 
-      const group = classify(cats);
+      const group = classifyPOI(catTitles, title);
 
-      if (!categories[group]) categories[group] = [];
-      categories[group].push({
+      if (!grouped[group]) grouped[group] = [];
+      grouped[group].push({
         pageid,
-        title: item.title,
-        lat: item.lat,
-        lon: item.lon
+        title,
+        lat: plat,
+        lon: plon,
+        distance: dist,
+        categories: catTitles
       });
     }
 
-    // 5) Construire l'intro dynamique
-    const intro = buildIntro(city, deptName, Object.keys(categories));
+    // 5) Catégories (thèmes) ordonnées (Autres à la fin)
+    const groups = Object.keys(grouped);
+    const orderedGroups = groups.filter(g => g !== "Autres découvertes");
+    if (groups.includes("Autres découvertes")) orderedGroups.push("Autres découvertes");
 
-    // 6) Réponse
+    // 6) Intro dynamique
+    const intro = buildIntro(city, deptName, orderedGroups);
+
     return res.json({
       city,
       departmentCode: deptCode,
@@ -188,8 +304,8 @@ export default async function handler(req, res) {
       lat,
       lon,
       intro,
-      categories: Object.keys(categories),
-      data: categories
+      categories: orderedGroups,
+      data: grouped
     });
 
   } catch (e) {
