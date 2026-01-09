@@ -55,7 +55,7 @@ export default async function handler(req, res) {
     // 1) Charger communes.json UNE SEULE FOIS
     if (!COMMUNES) {
       const baseUrl = `https://${req.headers.host}`;
-      const resp = await fetch(`${baseUrl}/communes.json`);
+      const resp = await fetch(`${baseUrl}/api/communes.json`);
       if (!resp.ok) {
         return res.status(500).json({ error: "Impossible de charger /communes.json" });
       }
