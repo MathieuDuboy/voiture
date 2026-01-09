@@ -59,12 +59,24 @@ export default async function handler(req, res) {
       if (!resp.ok) {
         return res.status(500).json({ error: "Impossible de charger /communes.json" });
       }
-      COMMUNES = await resp.json();
-      console.log("📦 Communes chargées:", COMMUNES.length);
+
+      const raw = await resp.json();
+
+      // Filtrer uniquement celles avec coordonnées valides
+      COMMUNES = raw.filter(c =>
+        c &&
+        c.centre &&
+        Array.isArray(c.centre.coordinates) &&
+        c.centre.coordinates.length === 2 &&
+        typeof c.centre.coordinates[0] === "number" &&
+        typeof c.centre.coordinates[1] === "number"
+      );
+
+      console.log("📦 Communes valides:", COMMUNES.length, "/", raw.length);
     }
 
     if (!Array.isArray(COMMUNES) || COMMUNES.length === 0) {
-      return res.status(500).json({ error: "Liste des communes vide" });
+      return res.status(500).json({ error: "Aucune commune valide disponible" });
     }
 
     // 2) Choisir une commune aléatoire
@@ -75,12 +87,9 @@ export default async function handler(req, res) {
     const deptCode = commune.codeDepartement?.toString() || "??";
     const deptName = DEPARTEMENTS[deptCode] || "Departement inconnu";
 
-    const lat = commune.centre?.lat;
-    const lon = commune.centre?.lon;
-
-    if (typeof lat !== "number" || typeof lon !== "number") {
-      return res.status(500).json({ error: "Commune sans coordonnées valides" });
-    }
+    // ⚠️ GeoJSON = [lon, lat]
+    const lon = commune.centre.coordinates[0];
+    const lat = commune.centre.coordinates[1];
 
     // 3) Wikipedia POI autour de la commune
     const wikiUrl = `https://fr.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=10000&gscoord=${lat}|${lon}&gslimit=20&format=json&origin=*`;
