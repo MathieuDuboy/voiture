@@ -1,11 +1,7 @@
-import fs from "fs";
-import path from "path";
-
 // ===============================
-// Charger les communes UNE FOIS
+// Cache mémoire des communes
 // ===============================
-const communesPath = path.join(process.cwd(), "communes.json");
-const COMMUNES = JSON.parse(fs.readFileSync(communesPath, "utf-8"));
+let COMMUNES = null;
 
 // ===============================
 // Table départements
@@ -56,41 +52,58 @@ function classify(categories) {
 // ===============================
 export default async function handler(req, res) {
   try {
-    // 1) Commune aléatoire locale
+    // 1) Charger communes.json UNE SEULE FOIS
+    if (!COMMUNES) {
+      const baseUrl = `https://${req.headers.host}`;
+      const resp = await fetch(`${baseUrl}/communes.json`);
+      if (!resp.ok) {
+        return res.status(500).json({ error: "Impossible de charger /communes.json" });
+      }
+      COMMUNES = await resp.json();
+      console.log("📦 Communes chargées:", COMMUNES.length);
+    }
+
+    if (!Array.isArray(COMMUNES) || COMMUNES.length === 0) {
+      return res.status(500).json({ error: "Liste des communes vide" });
+    }
+
+    // 2) Choisir une commune aléatoire
     const idx = Math.floor(Math.random() * COMMUNES.length);
     const commune = COMMUNES[idx];
 
-    const city = commune.nom;
-    const deptCode = commune.codeDepartement;
-    const deptName = DEPARTEMENTS[deptCode] || "departement inconnu";
+    const city = commune.nom || "Ville inconnue";
+    const deptCode = commune.codeDepartement?.toString() || "??";
+    const deptName = DEPARTEMENTS[deptCode] || "Departement inconnu";
 
     const lat = commune.centre?.lat;
     const lon = commune.centre?.lon;
 
-    if (!lat || !lon) {
-      return res.status(500).json({ error: "Commune sans coordonnées" });
+    if (typeof lat !== "number" || typeof lon !== "number") {
+      return res.status(500).json({ error: "Commune sans coordonnées valides" });
     }
 
-    // 2) Wikipedia POI
+    // 3) Wikipedia POI autour de la commune
     const wikiUrl = `https://fr.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=10000&gscoord=${lat}|${lon}&gslimit=20&format=json&origin=*`;
     const wikiResp = await fetch(wikiUrl);
     const wikiJson = await wikiResp.json();
 
-    const results = wikiJson.query.geosearch || [];
+    const results = wikiJson?.query?.geosearch || [];
 
-    // 3) Regroupement par catégories
+    // 4) Regrouper par catégories
     const categories = {};
 
     for (const item of results) {
       const pageid = item.pageid;
+
       const pageUrl = `https://fr.wikipedia.org/w/api.php?action=query&prop=categories&pageids=${pageid}&format=json&origin=*`;
       const pageResp = await fetch(pageUrl);
       const pageJson = await pageResp.json();
 
-      const page = pageJson.query.pages[pageid];
-      const cats = (page.categories || []).map(c => c.title);
+      const page = pageJson?.query?.pages?.[pageid];
+      const cats = (page?.categories || []).map(c => c.title);
 
       const group = classify(cats);
+
       if (!categories[group]) categories[group] = [];
       categories[group].push({
         pageid,
@@ -100,7 +113,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 4) Texte narratif
+    // 5) Texte narratif
     const intro = `Nous sommes dans la ville de ${city}, dans le departement de ${deptName}. J'ai trouve plusieurs choses interessantes autour de nous. Que veux-tu decouvrir ?`;
 
     return res.json({
