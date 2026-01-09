@@ -1,3 +1,18 @@
+function classify(categories) {
+  const text = categories.join(" ").toLowerCase();
+
+  if (text.includes("église") || text.includes("chapelle") || text.includes("cathédrale")) return "Monuments religieux";
+  if (text.includes("château")) return "Châteaux";
+  if (text.includes("musée")) return "Musées";
+  if (text.includes("lac") || text.includes("rivière") || text.includes("étang")) return "Lacs et rivières";
+  if (text.includes("forêt") || text.includes("parc") || text.includes("naturel")) return "Nature";
+  if (text.includes("monument") || text.includes("statue") || text.includes("tour")) return "Monuments";
+  if (text.includes("site") || text.includes("historique")) return "Sites historiques";
+
+  return "Autres découvertes";
+}
+
+
 export default async function handler(req, res) {
   try {
     // 1) Point aléatoire en France
@@ -17,7 +32,7 @@ export default async function handler(req, res) {
     const wikiResp = await fetch(wikiUrl);
     const wikiJson = await wikiResp.json();
 
-    const results = wikiJson.query.geosearch;
+    const results = wikiJson.query.geosearch || [];
 
     // 4) Regrouper par catégories
     const categories = {};
@@ -60,18 +75,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: String(e) });
   }
 }
-
-function classify(categories) {
-  const text = categories.join(" ").toLowerCase();
-
-  if (text.includes("église") || text.includes("chapelle") || text.includes("cathédrale")) return "Monuments religieux";
-  if (text.includes("château")) return "Châteaux";
-  if (text.includes("musée")) return "Musées";
-  if (text.includes("lac") || text.includes("rivière") || text.includes("étang")) return "Lacs et rivières";
-  if (text.includes("forêt") || text.includes("parc") || text.includes("naturel")) return "Nature";
-  if (text.includes("monument") || text.includes("statue") || text.includes("tour")) return "Monuments";
-  if (text.includes("site") || text.includes("historique")) return "Sites historiques";
-
-  return "Autres découvertes";
-}
-
