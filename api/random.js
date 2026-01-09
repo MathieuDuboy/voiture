@@ -31,6 +31,65 @@ const DEPARTEMENTS = {
 };
 
 // ===============================
+// Outils texte
+// ===============================
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+const INTRO_START = [
+  "Nous venons d'arriver à",
+  "Nous explorons aujourd'hui",
+  "Nous faisons escale à",
+  "Bienvenue à",
+  "Notre aventure nous emmène à"
+];
+
+const INTRO_MIDDLE = [
+  "une charmante ville située dans le département de",
+  "une ville du département de",
+  "un endroit intéressant dans le département de",
+  "un coin de France dans le département de"
+];
+
+const INTRO_TRANSITION = [
+  "En regardant autour de nous, j'ai découvert",
+  "En explorant les environs, on peut trouver",
+  "Autour de nous, il y a",
+  "J'ai repéré"
+];
+
+const INTRO_END = [
+  "Qu'est-ce qui te ferait plaisir de découvrir en premier ?",
+  "Que veux-tu explorer ?",
+  "Par quoi commence-t-on l'aventure ?",
+  "Dis-moi ce qui t'intrigue le plus."
+];
+
+// ===============================
+// Construire l'intro
+// ===============================
+function buildIntro(city, deptName, categories) {
+  const cats = categories.filter(c => c !== "Autres découvertes");
+  if (categories.includes("Autres découvertes")) {
+    cats.push("Autres découvertes");
+  }
+
+  let list;
+  if (cats.length === 0) {
+    list = "quelques endroits intéressants";
+  } else if (cats.length === 1) {
+    list = cats[0];
+  } else if (cats.length === 2) {
+    list = cats[0] + " et " + cats[1];
+  } else {
+    list = cats.slice(0, -1).join(", ") + " et " + cats[cats.length - 1];
+  }
+
+  return `${pick(INTRO_START)} ${city}, ${pick(INTRO_MIDDLE)} ${deptName}. ${pick(INTRO_TRANSITION)} ${list}. ${pick(INTRO_END)}`;
+}
+
+// ===============================
 // Classification Wikipedia
 // ===============================
 function classify(categories) {
@@ -62,7 +121,7 @@ export default async function handler(req, res) {
 
       const raw = await resp.json();
 
-      // Filtrer uniquement celles avec coordonnées valides
+      // Filtrer uniquement celles avec coordonnées valides (GeoJSON)
       COMMUNES = raw.filter(c =>
         c &&
         c.centre &&
@@ -73,10 +132,6 @@ export default async function handler(req, res) {
       );
 
       console.log("📦 Communes valides:", COMMUNES.length, "/", raw.length);
-    }
-
-    if (!Array.isArray(COMMUNES) || COMMUNES.length === 0) {
-      return res.status(500).json({ error: "Aucune commune valide disponible" });
     }
 
     // 2) Choisir une commune aléatoire
@@ -122,9 +177,10 @@ export default async function handler(req, res) {
       });
     }
 
-    // 5) Texte narratif
-    const intro = `Nous sommes dans la ville de ${city}, dans le departement de ${deptName}. J'ai trouve plusieurs choses interessantes autour de nous. Que veux-tu decouvrir ?`;
+    // 5) Construire l'intro dynamique
+    const intro = buildIntro(city, deptName, Object.keys(categories));
 
+    // 6) Réponse
     return res.json({
       city,
       departmentCode: deptCode,
