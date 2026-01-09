@@ -316,7 +316,7 @@ export default async function handler(req, res) {
       lon,
       intro,
       categories: orderedGroups,
-      data: grouped,
+
       stats: {
         poiCount: results.length,
         groupedCount: groups.length
