@@ -2,7 +2,7 @@
 // Cache mémoire des communes
 // ===============================
 let COMMUNES = null;
-
+ 
 // ===============================
 // Table départements
 // ===============================
